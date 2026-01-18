@@ -319,13 +319,32 @@
 
 .bili-video-title {
   font-size: 14px;
-  color: #333;
+  color: #00A1D6;
   line-height: 1.5;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+
+.bili-video-title:hover {
+  color: #FB7299;
+  text-decoration: underline;
+}
+
+.bili-video-link-icon {
+  font-size: 12px;
+  margin-left: 4px;
+  opacity: 0.6;
+  transition: opacity 0.2s ease;
+}
+
+.bili-video-title:hover .bili-video-link-icon {
+  opacity: 1;
 }
 
 .bili-video-time {

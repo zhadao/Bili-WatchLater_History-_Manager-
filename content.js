@@ -196,10 +196,10 @@ class BiliAnalyzer {
         videos: videos
       };
     } else if (this.currentScene === 'watchlater_list') {
-      const titles = await this.fetchWatchLaterData();
+      const videos = await this.fetchWatchLaterData();
       return {
-        titles: titles,
-        videos: []
+        titles: videos.map(v => v.title),
+        videos: videos
       };
     }
     return { titles: [], videos: [] };
@@ -232,7 +232,10 @@ class BiliAnalyzer {
       throw new Error('稍后再看列表为空');
     }
     
-    return data.data.list.map(item => item.title);
+    return data.data.list.map(item => ({
+      title: item.title,
+      bvid: item.bvid
+    }));
   }
 
   // 获取历史记录数据
@@ -277,6 +280,7 @@ class BiliAnalyzer {
         if (item.title && item.badge === '') {
           videos.push({
             title: item.title,
+            bvid: item.bvid || item.history?.bvid,
             view_at: item.view_at
           });
         }
@@ -358,6 +362,7 @@ class BiliAnalyzer {
           <h4 class="bili-section-title">视频列表 (${videos.length}个)</h4>
           <div class="bili-video-list">
             ${videos.map((video, index) => {
+              const bvid = video.bvid;
               const date = new Date(video.view_at * 1000);
               const timeStr = date.toLocaleString('zh-CN', {
                 month: '2-digit',
@@ -365,10 +370,11 @@ class BiliAnalyzer {
                 hour: '2-digit',
                 minute: '2-digit'
               });
+              const timeHtml = video.view_at ? `<div class="bili-video-time">${timeStr}</div>` : '';
               return `
                 <div class="bili-video-item" style="animation-delay: ${index * 0.02}s">
-                  <div class="bili-video-title">${video.title}</div>
-                  <div class="bili-video-time">${timeStr}</div>
+                  <div class="bili-video-title" data-bvid="${bvid}">${video.title} <span class="bili-video-link-icon">🔗</span></div>
+                  ${timeHtml}
                 </div>
               `;
             }).join('')}
@@ -378,6 +384,16 @@ class BiliAnalyzer {
     }
 
     modalBody.innerHTML = html;
+
+    const videoTitles = modalBody.querySelectorAll('.bili-video-title');
+    videoTitles.forEach(title => {
+      title.addEventListener('click', () => {
+        const bvid = title.getAttribute('data-bvid');
+        if (bvid) {
+          window.open(`https://www.bilibili.com/video/${bvid}`, '_blank');
+        }
+      });
+    });
   }
 
   // 创建模态框
