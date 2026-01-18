@@ -170,6 +170,7 @@ class BiliAnalyzer {
     }
     
     this.modal.classList.add('visible');
+    document.body.style.overflow = 'hidden';
     
     const modalBody = this.modal.querySelector('.bili-modal-body');
     modalBody.innerHTML = '<div class="bili-loading">正在读取B站数据...</div>';
@@ -177,7 +178,7 @@ class BiliAnalyzer {
     try {
       const data = await this.fetchData();
       if (data.titles && data.titles.length > 0) {
-        const results = this.analyzeTitles(data.titles);
+        const results = await this.analyzeTitles(data.titles);
         this.renderAnalysisResults(results, data.videos);
       } else {
         modalBody.innerHTML = '<div class="bili-error">未找到近期记录</div>';
@@ -240,7 +241,7 @@ class BiliAnalyzer {
 
   // 获取历史记录数据
   async fetchHistoryData() {
-    const threeDaysAgo = Date.now() - 3 * 24 * 60 * 60 * 1000;
+    const fiveDaysAgo = Date.now() - 5 * 24 * 60 * 60 * 1000;
     const videos = [];
     let viewAt = null;
     let pageCount = 0;
@@ -272,7 +273,7 @@ class BiliAnalyzer {
       for (const item of list) {
         const viewTime = item.view_at * 1000;
         
-        if (viewTime < threeDaysAgo) {
+        if (viewTime < fiveDaysAgo) {
           shouldContinue = false;
           break;
         }
@@ -300,30 +301,75 @@ class BiliAnalyzer {
     return videos;
   }
 
-  // 分析标题，统计词频
-  analyzeTitles(titles) {
+  // 分析标题，统计词频（支持自定义词库）
+  async analyzeTitles(titles) {
     const wordCount = new Map();
     
+    const { blockedWords = [], userPhrases = [] } = await this.getUserConfig();
+    const blockedSet = new Set(blockedWords);
+    const phraseSet = new Set(userPhrases);
+    
     titles.forEach(title => {
-      const segments = this.segmenter.segment(title);
+      let processedTitle = title;
+      
+      if (phraseSet.size > 0) {
+        phraseSet.forEach(phrase => {
+          const regex = new RegExp(this.escapeRegExp(phrase), 'g');
+          const matches = processedTitle.match(regex);
+          if (matches) {
+            wordCount.set(phrase, (wordCount.get(phrase) || 0) + matches.length);
+            processedTitle = processedTitle.replace(regex, ' ');
+          }
+        });
+      }
+      
+      const segments = this.segmenter.segment(processedTitle);
       for (const segment of segments) {
         const word = segment.segment.trim();
         
-        if (word.length > 1 && !this.stopWords.has(word) && /^[\u4e00-\u9fa5a-zA-Z0-9]+$/.test(word)) {
+        if (word.length > 1 && 
+            !this.stopWords.has(word) && 
+            !blockedSet.has(word) &&
+            !phraseSet.has(word) &&
+            /^[\u4e00-\u9fa5a-zA-Z0-9]+$/.test(word)) {
           wordCount.set(word, (wordCount.get(word) || 0) + 1);
         }
       }
     });
     
     const sortedWords = Array.from(wordCount.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 30);
+      .sort((a, b) => b[1] - a[1]);
     
     return sortedWords;
   }
+  
+  escapeRegExp(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+  
+  async getUserConfig() {
+    return new Promise((resolve) => {
+      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        chrome.storage.local.get(['blockedWords', 'userPhrases'], (result) => {
+          resolve({
+            blockedWords: result.blockedWords || [],
+            userPhrases: result.userPhrases || []
+          });
+        });
+      } else {
+        resolve({ blockedWords: [], userPhrases: [] });
+      }
+    });
+  }
+  
+  saveUserConfig(blockedWords, userPhrases) {
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      chrome.storage.local.set({ blockedWords, userPhrases });
+    }
+  }
 
   // 渲染分析结果
-  renderAnalysisResults(results, videos) {
+  async renderAnalysisResults(results, videos) {
     const modalBody = this.modal.querySelector('.bili-modal-body');
     
     if (results.length === 0 && videos.length === 0) {
@@ -331,59 +377,70 @@ class BiliAnalyzer {
       return;
     }
 
-    let html = '';
+    const displayLimit = 30;
+    const showExpandButton = results.length > displayLimit;
+    const displayedResults = results.slice(0, displayLimit);
 
-    if (results.length > 0) {
-      const maxCount = results[0][1];
-      html += `
-        <div class="bili-section">
+    const maxCount = results.length > 0 ? results[0][1] : 1;
+
+    const keywordsHtml = results.length > 0 ? `
+      <div class="bili-keywords-section">
+        <div class="bili-keywords-header">
           <h4 class="bili-section-title">高频关键词</h4>
-          <div class="bili-analysis-results">
-            ${results.map(([word, count], index) => {
-              const percentage = (count / maxCount) * 100;
-              return `
-                <div class="bili-result-item" style="animation-delay: ${index * 0.03}s">
-                  <div class="bili-result-word">${word}</div>
-                  <div class="bili-result-bar">
-                    <div class="bili-result-bar-fill" style="width: ${percentage}%"></div>
-                  </div>
-                  <div class="bili-result-count">${count}次</div>
-                </div>
-              `;
-            }).join('')}
-          </div>
+          ${showExpandButton ? `<button class="bili-expand-btn" id="bili-expand-btn">展开更多 ▼</button>` : ''}
         </div>
-      `;
-    }
-
-    if (videos.length > 0) {
-      html += `
-        <div class="bili-section">
-          <h4 class="bili-section-title">视频列表 (${videos.length}个)</h4>
-          <div class="bili-video-list">
-            ${videos.map((video, index) => {
-              const bvid = video.bvid;
-              const date = new Date(video.view_at * 1000);
-              const timeStr = date.toLocaleString('zh-CN', {
-                month: '2-digit',
-                day: '2-digit',
-                hour: '2-digit',
-                minute: '2-digit'
-              });
-              const timeHtml = video.view_at ? `<div class="bili-video-time">${timeStr}</div>` : '';
-              return `
-                <div class="bili-video-item" style="animation-delay: ${index * 0.02}s">
-                  <div class="bili-video-title" data-bvid="${bvid}">${video.title} <span class="bili-video-link-icon">🔗</span></div>
-                  ${timeHtml}
+        <div class="bili-analysis-results" id="bili-keywords-list">
+          ${displayedResults.map(([word, count], index) => {
+            const percentage = (count / maxCount) * 100;
+            return `
+              <div class="bili-result-item" style="animation-delay: ${index * 0.03}s">
+                <div class="bili-result-word">${word}</div>
+                <div class="bili-result-bar">
+                  <div class="bili-result-bar-fill" style="width: ${percentage}%"></div>
                 </div>
-              `;
-            }).join('')}
-          </div>
+                <div class="bili-result-count">${count}次</div>
+              </div>
+            `;
+          }).join('')}
         </div>
-      `;
-    }
+      </div>
+    ` : '';
 
-    modalBody.innerHTML = html;
+    const videosHtml = videos.length > 0 ? `
+      <div class="bili-videos-section">
+        <h4 class="bili-section-title">视频列表 (${videos.length}个)</h4>
+        <div class="bili-video-list">
+          ${videos.map((video, index) => {
+            const bvid = video.bvid;
+            const date = new Date(video.view_at * 1000);
+            const timeStr = date.toLocaleString('zh-CN', {
+              month: '2-digit',
+              day: '2-digit',
+              hour: '2-digit',
+              minute: '2-digit'
+            });
+            const timeHtml = video.view_at ? `<div class="bili-video-time">${timeStr}</div>` : '';
+            return `
+              <div class="bili-video-item" style="animation-delay: ${index * 0.02}s">
+                <div class="bili-video-title" data-bvid="${bvid}">${video.title} <span class="bili-video-link-icon">🔗</span></div>
+                ${timeHtml}
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    ` : '';
+
+    modalBody.innerHTML = `
+      <div class="bili-modal-layout">
+        <div class="bili-left-panel">
+          ${keywordsHtml}
+        </div>
+        <div class="bili-right-panel">
+          ${videosHtml}
+        </div>
+      </div>
+    `;
 
     const videoTitles = modalBody.querySelectorAll('.bili-video-title');
     videoTitles.forEach(title => {
@@ -394,6 +451,27 @@ class BiliAnalyzer {
         }
       });
     });
+
+    const expandBtn = modalBody.querySelector('#bili-expand-btn');
+    if (expandBtn) {
+      expandBtn.addEventListener('click', () => {
+        const keywordsList = modalBody.querySelector('#bili-keywords-list');
+        const allResults = results.map(([word, count], index) => {
+          const percentage = (count / maxCount) * 100;
+          return `
+            <div class="bili-result-item" style="animation-delay: ${index * 0.03}s">
+              <div class="bili-result-word">${word}</div>
+              <div class="bili-result-bar">
+                <div class="bili-result-bar-fill" style="width: ${percentage}%"></div>
+              </div>
+              <div class="bili-result-count">${count}次</div>
+            </div>
+          `;
+        }).join('');
+        keywordsList.innerHTML = allResults;
+        expandBtn.style.display = 'none';
+      });
+    }
   }
 
   // 创建模态框
@@ -413,7 +491,13 @@ class BiliAnalyzer {
       <div class="bili-modal-content">
         <div class="bili-modal-header">
           <h3>${title}</h3>
-          <button class="bili-modal-close">&times;</button>
+          <div class="bili-modal-header-actions">
+            <button class="bili-config-btn" id="bili-config-btn">
+              <span>⚙️</span>
+              <span>自定义配置</span>
+            </button>
+            <button class="bili-modal-close">&times;</button>
+          </div>
         </div>
         <div class="bili-modal-body">
           <div class="bili-loading">加载中...</div>
@@ -435,6 +519,11 @@ class BiliAnalyzer {
       }
     });
 
+    const configBtn = this.modal.querySelector('#bili-config-btn');
+    if (configBtn) {
+      configBtn.addEventListener('click', () => this.openConfigModal());
+    }
+
     document.body.appendChild(this.modal);
   }
 
@@ -442,6 +531,100 @@ class BiliAnalyzer {
   closeModal() {
     if (this.modal) {
       this.modal.classList.remove('visible');
+      document.body.style.overflow = '';
+    }
+  }
+
+  // 打开配置子模态框
+  async openConfigModal() {
+    if (this.configModal) {
+      this.configModal.classList.add('visible');
+      return;
+    }
+
+    const { blockedWords = [], userPhrases = [] } = await this.getUserConfig();
+
+    this.configModal = document.createElement('div');
+    this.configModal.className = 'bili-submodal-overlay';
+    
+    this.configModal.innerHTML = `
+      <div class="bili-submodal-content">
+        <div class="bili-submodal-header">
+          <h3>自定义配置</h3>
+          <button class="bili-modal-close">&times;</button>
+        </div>
+        <div class="bili-submodal-body">
+          <div class="bili-config-section">
+            <div class="bili-config-item">
+              <label class="bili-config-label">屏蔽词（用逗号分隔）</label>
+              <textarea class="bili-config-textarea" id="bili-blocked-words" placeholder="例如：我们,99,II">${blockedWords.join(',')}</textarea>
+            </div>
+            <div class="bili-config-item">
+              <label class="bili-config-label">自定义短语（用逗号分隔）</label>
+              <textarea class="bili-config-textarea" id="bili-user-phrases" placeholder="例如：明日方舟,原神">${userPhrases.join(',')}</textarea>
+            </div>
+          </div>
+        </div>
+        <div class="bili-submodal-footer">
+          <button class="bili-submodal-btn bili-submodal-btn-cancel" id="bili-config-cancel-btn">取消</button>
+          <button class="bili-submodal-btn bili-submodal-btn-save" id="bili-config-save-btn">保存</button>
+        </div>
+      </div>
+    `;
+
+    const closeButtons = this.configModal.querySelectorAll('.bili-modal-close, #bili-config-cancel-btn');
+    closeButtons.forEach(btn => {
+      btn.addEventListener('click', () => this.closeConfigModal());
+    });
+
+    this.configModal.addEventListener('click', (e) => {
+      if (e.target === this.configModal) {
+        this.closeConfigModal();
+      }
+    });
+
+    const saveBtn = this.configModal.querySelector('#bili-config-save-btn');
+    saveBtn.addEventListener('click', () => this.saveConfigAndRefresh());
+
+    document.body.appendChild(this.configModal);
+    
+    setTimeout(() => {
+      this.configModal.classList.add('visible');
+    }, 10);
+  }
+
+  // 关闭配置子模态框
+  closeConfigModal() {
+    if (this.configModal) {
+      this.configModal.classList.remove('visible');
+    }
+  }
+
+  // 保存配置并刷新
+  async saveConfigAndRefresh() {
+    const blockedWordsInput = this.configModal.querySelector('#bili-blocked-words').value;
+    const userPhrasesInput = this.configModal.querySelector('#bili-user-phrases').value;
+    
+    const newBlockedWords = blockedWordsInput.split(',').map(w => w.trim()).filter(w => w);
+    const newUserPhrases = userPhrasesInput.split(',').map(p => p.trim()).filter(p => p);
+    
+    this.saveUserConfig(newBlockedWords, newUserPhrases);
+    
+    this.closeConfigModal();
+    
+    const modalBody = this.modal.querySelector('.bili-modal-body');
+    modalBody.innerHTML = '<div class="bili-loading">正在重新分析...</div>';
+    
+    try {
+      const data = await this.fetchData();
+      if (data.titles && data.titles.length > 0) {
+        const results = await this.analyzeTitles(data.titles);
+        this.renderAnalysisResults(results, data.videos);
+      } else {
+        modalBody.innerHTML = '<div class="bili-error">未找到近期记录</div>';
+      }
+    } catch (error) {
+      modalBody.innerHTML = `<div class="bili-error">获取数据失败：${error.message}</div>`;
     }
   }
 

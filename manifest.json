@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Bilibili WatchLater Exporter",
-  "version": "1.0.0",
+  "version": "1.3.0",
   "description": "在B站稍后再看列表中快速跳转到普通播放页",
   "icons": {
     "16": "icons/icon16.svg",
@@ -19,5 +19,5 @@
   "background": {
     "service_worker": "background.js"
   },
-  "permissions": []
+  "permissions": ["storage"]
 }
