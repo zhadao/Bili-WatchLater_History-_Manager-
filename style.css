@@ -1,10 +1,60 @@
+/* CSS Variables - Light Mode (Default) */
+:root {
+  --bg-main: #e0eefa;
+  --bg-card: #ffffff;
+  --bg-card-alt: #f9f9f9;
+  --bg-hover: #f0f0f0;
+  --bg-secondary: #f5f5f5;
+  --bg-secondary-hover: #e8e8e8;
+  --text-primary: #333333;
+  --text-secondary: #666666;
+  --text-tertiary: #999999;
+  --text-link: #00A1D6;
+  --text-link-hover: #FB7299;
+  --border-color: #e8e8e8;
+  --border-color-hover: #FB7299;
+  --shadow: rgba(0, 0, 0, 0.3);
+  --shadow-overlay: rgba(0, 0, 0, 0.5);
+  --accent-primary: #FB7299;
+  --accent-primary-hover: #e05a85;
+  --accent-secondary: #00A1D6;
+  --accent-secondary-hover: #0087b3;
+  --toggle-bg: #ccc;
+  --toggle-bg-active: #FB7299;
+}
+
+/* CSS Variables - Dark Mode */
+[data-theme="dark"] {
+  --bg-main: #1e3346;
+  --bg-card: #2a4a5f;
+  --bg-card-alt: #253d50;
+  --bg-hover: #324f65;
+  --bg-secondary: #2a4a5f;
+  --bg-secondary-hover: #324f65;
+  --text-primary: #e8e8e8;
+  --text-secondary: #b8c5d0;
+  --text-tertiary: #8a9ba8;
+  --text-link: #4ECDC4;
+  --text-link-hover: #FB7299;
+  --border-color: #3a5a73;
+  --border-color-hover: #FB7299;
+  --shadow: rgba(0, 0, 0, 0.5);
+  --shadow-overlay: rgba(0, 0, 0, 0.7);
+  --accent-primary: #FB7299;
+  --accent-primary-hover: #e05a85;
+  --accent-secondary: #4ECDC4;
+  --accent-secondary-hover: #3db8b0;
+  --toggle-bg: #3a5a73;
+  --toggle-bg-active: #4ECDC4;
+}
+
 .bili-exporter-btn {
   position: fixed;
   bottom: 100px;
   right: 20px;
   width: 100px;
   height: 40px;
-  background-color: #FB7299;
+  background-color: var(--accent-primary);
   color: white;
   border: none;
   border-radius: 8px;
@@ -21,7 +71,7 @@
 }
 
 .bili-exporter-btn:hover {
-  background-color: #e05a85;
+  background-color: var(--accent-primary-hover);
   box-shadow: 0 6px 16px rgba(251, 114, 153, 0.6);
   transform: translateY(-2px);
 }
@@ -41,7 +91,7 @@
   right: 20px;
   width: 100px;
   height: 40px;
-  background-color: #00A1D6;
+  background-color: var(--accent-secondary);
   color: white;
   border: none;
   border-radius: 8px;
@@ -58,7 +108,7 @@
 }
 
 .bili-analyze-btn:hover {
-  background-color: #0087b3;
+  background-color: var(--accent-secondary-hover);
   box-shadow: 0 6px 16px rgba(0, 161, 214, 0.6);
   transform: translateY(-2px);
 }
@@ -78,7 +128,7 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: var(--shadow-overlay);
   z-index: 100000;
   display: none;
   align-items: center;
@@ -93,9 +143,9 @@
 }
 
 .bili-modal-content {
-  background-color: white;
+  background-color: var(--bg-card);
   border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 8px 32px var(--shadow);
   width: 90%;
   max-width: 1100px;
   max-height: 80vh;
@@ -136,7 +186,7 @@
   background: none;
   border: none;
   font-size: 28px;
-  color: #999;
+  color: var(--text-tertiary);
   cursor: pointer;
   padding: 0;
   width: 30px;
@@ -149,7 +199,7 @@
 }
 
 .bili-modal-close:hover {
-  color: #333;
+  color: var(--text-primary);
 }
 
 .bili-modal-body {
@@ -158,6 +208,7 @@
   flex: 1;
   display: flex;
   flex-direction: column;
+  background-color: var(--bg-main);
 }
 
 .bili-modal-layout {
@@ -205,7 +256,7 @@
 .bili-expand-btn {
   background: none;
   border: none;
-  color: #00A1D6;
+  color: var(--text-link);
   font-size: 12px;
   cursor: pointer;
   padding: 4px 8px;
@@ -213,7 +264,7 @@
 }
 
 .bili-expand-btn:hover {
-  color: #FB7299;
+  color: var(--text-link-hover);
   text-decoration: underline;
 }
 
@@ -243,7 +294,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: #ccc;
+  background-color: var(--toggle-bg);
   transition: 0.3s;
   border-radius: 24px;
 }
@@ -262,7 +313,7 @@
 }
 
 .bili-toggle-switch input:checked + .bili-toggle-slider {
-  background-color: #FB7299;
+  background-color: var(--toggle-bg-active);
 }
 
 .bili-toggle-switch input:checked + .bili-toggle-slider:before {
@@ -275,7 +326,7 @@
 
 .bili-toggle-label {
   font-size: 13px;
-  color: #666;
+  color: var(--text-secondary);
   font-weight: 500;
 }
 
@@ -312,7 +363,7 @@
 
 .bili-loading {
   text-align: center;
-  color: #999;
+  color: var(--text-tertiary);
   font-size: 14px;
   padding: 40px 0;
 }
@@ -354,7 +405,7 @@
   width: 100px;
   font-size: 14px;
   font-weight: 500;
-  color: #333;
+  color: var(--text-primary);
   flex-shrink: 0;
   text-align: left;
   cursor: pointer;
@@ -364,11 +415,11 @@
 }
 
 .bili-result-word:hover {
-  background-color: #f0f0f0;
+  background-color: var(--bg-hover);
 }
 
 .bili-keyword-selected {
-  background-color: #00a1d6;
+  background-color: var(--accent-secondary);
   color: white;
   font-weight: bold;
 }
@@ -376,7 +427,7 @@
 .bili-result-bar {
   flex: 1;
   height: 24px;
-  background-color: #f0f0f0;
+  background-color: var(--bg-hover);
   border-radius: 4px;
   overflow: hidden;
 }
@@ -398,14 +449,14 @@
 .bili-result-count {
   width: 50px;
   font-size: 12px;
-  color: #999;
+  color: var(--text-tertiary);
   text-align: right;
   flex-shrink: 0;
 }
 
 .bili-modal-footer {
   padding: 16px 24px;
-  border-top: 1px solid #e8e8e8;
+  border-top: 1px solid var(--border-color);
   display: flex;
   justify-content: flex-end;
 }
@@ -440,9 +491,9 @@
   margin: 0 0 16px 0;
   font-size: 16px;
   font-weight: bold;
-  color: #333;
+  color: var(--text-primary);
   padding-bottom: 8px;
-  border-bottom: 2px solid #FB7299;
+  border-bottom: 2px solid var(--accent-primary);
 }
 
 .bili-video-item {
@@ -450,23 +501,23 @@
   flex-direction: column;
   gap: 4px;
   padding: 12px;
-  background-color: #f9f9f9;
+  background-color: var(--bg-card-alt);
   border-radius: 8px;
-  border: 1px solid #e8e8e8;
+  border: 1px solid var(--border-color);
   transition: all 0.2s ease;
   opacity: 0;
   animation: fadeInUp 0.3s ease forwards;
 }
 
 .bili-video-item:hover {
-  background-color: #f0f0f0;
-  border-color: #FB7299;
+  background-color: var(--bg-hover);
+  border-color: var(--border-color-hover);
   transform: translateX(4px);
 }
 
 .bili-video-title {
   font-size: 14px;
-  color: #00A1D6;
+  color: var(--text-link);
   line-height: 1.5;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -479,7 +530,7 @@
 }
 
 .bili-video-title:hover {
-  color: #FB7299;
+  color: var(--text-link-hover);
   text-decoration: underline;
 }
 
@@ -496,23 +547,8 @@
 
 .bili-video-time {
   font-size: 12px;
-  color: #999;
+  color: var(--text-tertiary);
   margin-top: 4px;
-}
-
-.bili-modal-header {
-  padding: 20px 24px;
-  border-bottom: 1px solid #e8e8e8;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.bili-modal-header h3 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: bold;
-  color: #333;
 }
 
 .bili-modal-header-actions {
@@ -531,11 +567,11 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  color: #666;
+  color: var(--text-secondary);
 }
 
 .bili-config-btn:hover {
-  color: #00A1D6;
+  color: var(--text-link);
   transform: scale(1.1);
 }
 
@@ -553,15 +589,15 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  color: #666;
+  color: var(--text-secondary);
   border-radius: 6px;
-  background-color: #f5f5f5;
+  background-color: var(--bg-secondary);
   font-weight: 500;
 }
 
 .bili-footer-btn:hover {
-  background-color: #e8e8e8;
-  color: #00A1D6;
+  background-color: var(--bg-secondary-hover);
+  color: var(--text-link);
 }
 
 .bili-footer-btn:active {
@@ -584,7 +620,7 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: var(--shadow-overlay);
   z-index: 100001;
   display: none;
   align-items: center;
@@ -599,9 +635,9 @@
 }
 
 .bili-submodal-content {
-  background-color: white;
+  background-color: var(--bg-card);
   border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 8px 32px var(--shadow);
   width: 90%;
   max-width: 500px;
   display: flex;
@@ -611,7 +647,7 @@
 
 .bili-submodal-header {
   padding: 20px 24px;
-  border-bottom: 1px solid #e8e8e8;
+  border-bottom: 1px solid var(--border-color);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -621,7 +657,7 @@
   margin: 0;
   font-size: 18px;
   font-weight: bold;
-  color: #333;
+  color: var(--text-primary);
 }
 
 .bili-submodal-body {
@@ -633,7 +669,7 @@
 
 .bili-submodal-footer {
   padding: 16px 24px;
-  border-top: 1px solid #e8e8e8;
+  border-top: 1px solid var(--border-color);
   display: flex;
   justify-content: flex-end;
   gap: 12px;
@@ -650,21 +686,21 @@
 }
 
 .bili-submodal-btn-cancel {
-  background-color: #f0f0f0;
-  color: #666;
+  background-color: var(--bg-hover);
+  color: var(--text-secondary);
 }
 
 .bili-submodal-btn-cancel:hover {
-  background-color: #e0e0e0;
+  background-color: var(--bg-secondary-hover);
 }
 
 .bili-submodal-btn-save {
-  background-color: #00A1D6;
+  background-color: var(--accent-secondary);
   color: white;
 }
 
 .bili-submodal-btn-save:hover {
-  background-color: #0087b3;
+  background-color: var(--accent-secondary-hover);
 }
 
 .bili-config-section {
@@ -682,24 +718,26 @@
 .bili-config-label {
   font-size: 13px;
   font-weight: 500;
-  color: #666;
+  color: var(--text-secondary);
 }
 
 .bili-config-textarea {
   width: 100%;
   min-height: 60px;
   padding: 8px 12px;
-  border: 1px solid #e8e8e8;
+  border: 1px solid var(--border-color);
   border-radius: 6px;
   font-size: 13px;
   font-family: inherit;
   resize: vertical;
   transition: border-color 0.2s ease;
+  background-color: var(--bg-card);
+  color: var(--text-primary);
 }
 
 .bili-config-textarea:focus {
   outline: none;
-  border-color: #00A1D6;
+  border-color: var(--text-link);
 }
 
 .bili-config-textarea::placeholder {
@@ -734,6 +772,190 @@
 .bili-empty-state {
   text-align: center;
   padding: 40px 20px;
-  color: #999;
+  color: var(--text-tertiary);
   font-size: 14px;
+}
+
+/* Info Button */
+.bili-info-btn {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background-color: var(--accent-secondary);
+  color: white;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: bold;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s ease;
+  z-index: 10;
+}
+
+.bili-info-btn:hover {
+  background-color: var(--accent-secondary-hover);
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.bili-info-btn:active {
+  transform: scale(0.95);
+}
+
+/* About Modal */
+.bili-about-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: var(--shadow-overlay);
+  z-index: 100002;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.bili-about-modal.visible {
+  display: flex;
+  opacity: 1;
+}
+
+.bili-about-content {
+  background-color: var(--bg-card);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px var(--shadow);
+  width: 90%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  animation: modalSlideIn 0.3s ease;
+}
+
+.bili-about-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.bili-about-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: bold;
+  color: var(--text-primary);
+}
+
+.bili-about-body {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: center;
+}
+
+.bili-about-text {
+  text-align: center;
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.bili-about-text-line {
+  margin: 8px 0;
+}
+
+.bili-about-buttons {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+.bili-about-link-btn {
+  padding: 10px 24px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  display: inline-block;
+  color: white;
+}
+
+.bili-about-link-btn.github {
+  background-color: var(--accent-secondary);
+}
+
+.bili-about-link-btn.github:hover {
+  background-color: var(--accent-secondary-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.bili-about-link-btn.bilibili {
+  background-color: var(--accent-primary);
+}
+
+.bili-about-link-btn.bilibili:hover {
+  background-color: var(--accent-primary-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.bili-about-link-btn:active {
+  transform: translateY(0);
+}
+
+/* Theme Toggle Switch */
+.bili-theme-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 16px;
+}
+
+.bili-theme-toggle-btn {
+  position: relative;
+  width: 50px;
+  height: 26px;
+  background-color: var(--toggle-bg);
+  border-radius: 26px;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  padding: 0;
+  display: flex;
+  align-items: center;
+}
+
+.bili-theme-toggle-btn[data-theme="dark"] {
+  background-color: var(--toggle-bg-active);
+}
+
+.bili-theme-toggle-slider {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  background-color: white;
+  border-radius: 50%;
+  transition: transform 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  left: 3px;
+}
+
+.bili-theme-toggle-btn[data-theme="dark"] .bili-theme-toggle-slider {
+  transform: translateX(24px);
 }
