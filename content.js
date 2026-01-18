@@ -6,16 +6,27 @@ class BiliAnalyzer {
     this.analyzeButton = null;
     this.modal = null;
     this.lastUrl = '';
+    this.originalVideos = [];
+    this.currentFilterKeyword = null;
     
     this.stopWords = new Set([
       '的', '了', '是', '和', '在', '视频', '教程', '[', ']', '(', ')', '(', ')', 
       ',', '.', '!', '?', '/', ':', ';', '"', '"', "'", "'", ' ', '\t', '\n',
       '一个', '这个', '那个', '可以', '如何', '什么', '没有', '进行', '使用', '实现',
-      '学习', '分享', '讲解', '演示', '制作', '开发', '编程', '代码', '项目', '实战',
+      '学习', '分享', '讲解', '演示', '制作', '开发',  '代码', '项目', '实战',
       '入门', '进阶', '基础', '高级', '完整', '详细', '全面', '系列', '课程', '教学',
       '第一', '第二', '第三', '第四', '第五', '第六', '第七', '第八', '第九', '第十',
       '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '一', '二', '三', '四', '五',
-      '六', '七', '八', '九', '十', '零', '百', '千', '万', '亿'
+      '六', '七', '八', '九', '十', '零', '百', '千', '万', '亿',
+      '我们', '到了', '真的', '大家', '都会', '真的', '这么', '一下', '差一点', '再打', '以为', '放大',
+      '超全', '巨细', '贼香', '爆爽', '绝了', '太绝', '超赞', '巨牛', '贼强', '爆燃', '超燃', '巨燃',
+      '贼燃', '绝燃', '太燃', '超爽', '巨爽', '贼爽', '绝爽', '太爽', '超神', '巨神', '贼神', '绝神',
+      '太神', '超稳', '巨稳', '贼稳', '绝稳', '太稳', '超秀', '巨秀', '贼秀', '绝秀', '太秀', '超顶',
+      '巨顶', '贼顶', '绝顶', '太顶', '超炸', '巨炸', '贼炸', '绝炸', '太炸', '超猛', '巨猛', '贼猛',
+      '绝猛', '太猛', '超酷', '巨酷', '贼酷', '绝酷', '太酷', '超炫', '巨炫', '贼炫', '绝炫', '太炫',
+      '超飒', '巨飒', '贼飒', '绝飒', '太飒', '超 A', '巨 A', '贼 A', '绝 A', '太 A', '超甜', '巨甜',
+      '贼甜', '绝甜', '太甜', '超虐', '巨虐', '贼虐', '绝虐', '太虐', '超萌', '巨萌', '贼萌', '绝萌',
+      '太萌', '超可爱', '巨可爱', '贼可爱', '绝可爱', '太可爱'
     ]);
     
     this.segmenter = new Intl.Segmenter('zh-CN', { granularity: 'word' });
@@ -377,6 +388,9 @@ class BiliAnalyzer {
       return;
     }
 
+    this.originalVideos = videos;
+    this.currentFilterKeyword = null;
+
     const displayLimit = 30;
     const showExpandButton = results.length > displayLimit;
     const displayedResults = results.slice(0, displayLimit);
@@ -394,36 +408,11 @@ class BiliAnalyzer {
             const percentage = (count / maxCount) * 100;
             return `
               <div class="bili-result-item" style="animation-delay: ${index * 0.03}s">
-                <div class="bili-result-word">${word}</div>
+                <div class="bili-result-word" data-keyword="${word}">${word}</div>
                 <div class="bili-result-bar">
                   <div class="bili-result-bar-fill" style="width: ${percentage}%"></div>
                 </div>
                 <div class="bili-result-count">${count}次</div>
-              </div>
-            `;
-          }).join('')}
-        </div>
-      </div>
-    ` : '';
-
-    const videosHtml = videos.length > 0 ? `
-      <div class="bili-videos-section">
-        <h4 class="bili-section-title">视频列表 (${videos.length}个)</h4>
-        <div class="bili-video-list">
-          ${videos.map((video, index) => {
-            const bvid = video.bvid;
-            const date = new Date(video.view_at * 1000);
-            const timeStr = date.toLocaleString('zh-CN', {
-              month: '2-digit',
-              day: '2-digit',
-              hour: '2-digit',
-              minute: '2-digit'
-            });
-            const timeHtml = video.view_at ? `<div class="bili-video-time">${timeStr}</div>` : '';
-            return `
-              <div class="bili-video-item" style="animation-delay: ${index * 0.02}s">
-                <div class="bili-video-title" data-bvid="${bvid}">${video.title} <span class="bili-video-link-icon">🔗</span></div>
-                ${timeHtml}
               </div>
             `;
           }).join('')}
@@ -437,18 +426,21 @@ class BiliAnalyzer {
           ${keywordsHtml}
         </div>
         <div class="bili-right-panel">
-          ${videosHtml}
+          <div class="bili-videos-section">
+            <h4 class="bili-section-title">视频列表 (${videos.length}个)</h4>
+            <div class="bili-video-list" id="bili-video-list"></div>
+          </div>
         </div>
       </div>
     `;
 
-    const videoTitles = modalBody.querySelectorAll('.bili-video-title');
-    videoTitles.forEach(title => {
-      title.addEventListener('click', () => {
-        const bvid = title.getAttribute('data-bvid');
-        if (bvid) {
-          window.open(`https://www.bilibili.com/video/${bvid}`, '_blank');
-        }
+    this.renderVideoList(videos);
+
+    const keywordElements = modalBody.querySelectorAll('.bili-result-word');
+    keywordElements.forEach(keywordElement => {
+      const keyword = keywordElement.getAttribute('data-keyword');
+      keywordElement.addEventListener('dblclick', () => {
+        this.toggleKeywordFilter(keyword);
       });
     });
 
@@ -460,7 +452,7 @@ class BiliAnalyzer {
           const percentage = (count / maxCount) * 100;
           return `
             <div class="bili-result-item" style="animation-delay: ${index * 0.03}s">
-              <div class="bili-result-word">${word}</div>
+              <div class="bili-result-word" data-keyword="${word}">${word}</div>
               <div class="bili-result-bar">
                 <div class="bili-result-bar-fill" style="width: ${percentage}%"></div>
               </div>
@@ -470,7 +462,83 @@ class BiliAnalyzer {
         }).join('');
         keywordsList.innerHTML = allResults;
         expandBtn.style.display = 'none';
+
+        const newKeywordElements = keywordsList.querySelectorAll('.bili-result-word');
+        newKeywordElements.forEach(keywordElement => {
+          const keyword = keywordElement.getAttribute('data-keyword');
+          keywordElement.addEventListener('dblclick', () => {
+            this.toggleKeywordFilter(keyword);
+          });
+        });
       });
+    }
+  }
+
+  toggleKeywordFilter(keyword) {
+    if (this.currentFilterKeyword === keyword) {
+      this.currentFilterKeyword = null;
+      this.renderVideoList(this.originalVideos);
+      this.updateKeywordHighlight(null);
+    } else {
+      this.currentFilterKeyword = keyword;
+      const filteredVideos = this.originalVideos.filter(video => 
+        video.title.includes(keyword)
+      );
+      this.renderVideoList(filteredVideos);
+      this.updateKeywordHighlight(keyword);
+    }
+  }
+
+  renderVideoList(videos) {
+    const videoListContainer = this.modal.querySelector('#bili-video-list');
+    videoListContainer.innerHTML = '';
+
+    if (videos.length === 0) {
+      videoListContainer.innerHTML = '<div class="bili-empty-state">暂无相关视频</div>';
+      return;
+    }
+
+    videos.forEach((video, index) => {
+      const bvid = video.bvid;
+      const date = new Date(video.view_at * 1000);
+      const timeStr = date.toLocaleString('zh-CN', {
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      const timeHtml = video.view_at ? `<div class="bili-video-time">${timeStr}</div>` : '';
+      
+      const videoItem = document.createElement('div');
+      videoItem.className = 'bili-video-item';
+      videoItem.style.animationDelay = `${index * 0.02}s`;
+      videoItem.innerHTML = `
+        <div class="bili-video-title" data-bvid="${bvid}">${video.title} <span class="bili-video-link-icon">🔗</span></div>
+        ${timeHtml}
+      `;
+      
+      const videoTitle = videoItem.querySelector('.bili-video-title');
+      videoTitle.addEventListener('click', () => {
+        if (bvid) {
+          window.open(`https://www.bilibili.com/video/${bvid}`, '_blank');
+        }
+      });
+      
+      videoListContainer.appendChild(videoItem);
+    });
+  }
+
+  updateKeywordHighlight(keyword) {
+    const keywordElements = this.modal.querySelectorAll('.bili-result-word');
+    keywordElements.forEach(keywordElement => {
+      keywordElement.classList.remove('bili-keyword-selected');
+    });
+    
+    if (keyword) {
+      const targetElement = this.modal.querySelector(`.bili-result-word[data-keyword="${keyword}"]`);
+      if (targetElement) {
+        targetElement.classList.add('bili-keyword-selected');
+      }
     }
   }
 
@@ -532,6 +600,8 @@ class BiliAnalyzer {
     if (this.modal) {
       this.modal.classList.remove('visible');
       document.body.style.overflow = '';
+      this.originalVideos = [];
+      this.currentFilterKeyword = null;
     }
   }
 
