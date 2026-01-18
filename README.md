@@ -3,7 +3,7 @@
 > **为 B 站重度用户打造的“注意力管理”与“观看体验优化”工具。**  
 > 助你逃离“稍后再看”的封闭播放页，并在信息过载的时代，通过 AI 词频分析快速复盘你的近期关注点。
 
-![License](https://img.shields.io/badge/license-MIT-blue.svg) ![Version](https://img.shields.io/badge/version-v1.3.0-green.svg)
+![License](https://img.shields.io/badge/license-MIT-blue.svg) ![Version](https://img.shields.io/badge/version-v1.5.0-green.svg)
 
 ## 📖 开发初衷
 
