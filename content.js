@@ -571,6 +571,7 @@ class BiliAnalyzer {
           <div class="bili-loading">加载中...</div>
         </div>
         <div class="bili-modal-footer">
+          <span class="bili-author-credit">Designed by 扎导ZhaDa0</span>
           <button class="bili-modal-close-btn">关闭</button>
         </div>
       </div>
