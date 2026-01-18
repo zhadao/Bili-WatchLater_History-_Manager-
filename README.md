@@ -2,10 +2,6 @@
 
 > 一个轻量级的 Chrome 浏览器插件，助你逃离 B 站"稍后再看"的封闭播放页，方便观看的同时帮助分析观看习惯。提供强大的观看历史与稍后再看数据分析能力。
 
-# Bilibili 稍后再看 & 历史记录增强助手 (Bili-WatchLater-Ex)
-
-> 一个轻量级的 Chrome 浏览器插件，助你逃离 B 站"稍后再看"的封闭播放页，方便观看的同时帮助分析观看习惯。提供强大的观看历史与稍后再看数据分析能力。
-
 ![License](https://img.shields.io/badge/license-MIT-blue.svg) ![Version](https://img.shields.io/badge/version-v1.3.0-green.svg)
 
 ## ✨ 核心功能
