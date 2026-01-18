@@ -10,6 +10,7 @@ class BiliAnalyzer {
     this.currentFilterKeyword = null;
     this.isCaseSensitive = false;
     this.userDefinedWords = new Set();
+    this.lastToggleTime = 0;
     
     this.stopWords = new Set([
       '的', '了', '是', '和', '在', '视频', '教程', '[', ']', '(', ')', '(', ')', 
@@ -41,25 +42,26 @@ class BiliAnalyzer {
     this.userDefinedWords = new Set(userDefinedWords);
   }
   
-  // 预分词工具函数：处理自定义词库，返回 tokens 数组
+  // 【修复】预分词工具函数：使用 replace(regex, callback) 确保智能正则生效
   tokenizeWithUserWords(title) {
     let processedTitle = title;
-    const placeholders = [];
-    const originalTexts = [];
+    const placeholderMap = new Map(); // placeholder -> original text
+    let placeholderIndex = 0;
     
-    // 优先处理自定义词：使用智能正则匹配
-    this.userDefinedWords.forEach(word => {
+    // 按长度排序，优先处理长词（避免短词截断长词）
+    const sortedWords = [...this.userDefinedWords].sort((a, b) => b.length - a.length);
+    
+    // 【关键修复】使用 replace(regex, callback) 而非 string.replace(match, ...)
+    // 这样可以确保单词边界 \b 正确生效，不会把 "repair" 中的 "ai" 错误提取
+    sortedWords.forEach(word => {
       const regex = this.createSmartRegex(word, 'gi');
-      const matches = processedTitle.match(regex);
       
-      if (matches) {
-        matches.forEach(match => {
-          const placeholder = `__WORD_${placeholders.length}__`;
-          placeholders.push(placeholder);
-          originalTexts.push(match);
-          processedTitle = processedTitle.replace(match, placeholder);
-        });
-      }
+      processedTitle = processedTitle.replace(regex, (match) => {
+        const placeholder = `__WORD_${placeholderIndex}__`;
+        placeholderMap.set(placeholder, match);
+        placeholderIndex++;
+        return placeholder;
+      });
     });
     
     // 使用 Intl.Segmenter 分词
@@ -74,9 +76,8 @@ class BiliAnalyzer {
     
     // 还原自定义词（保留原始大小写）
     const finalTokens = rawTokens.map(token => {
-      if (token.startsWith('__WORD_') && token.endsWith('__')) {
-        const index = parseInt(token.replace('__WORD_', '').replace('__', ''));
-        return originalTexts[index] || token;
+      if (placeholderMap.has(token)) {
+        return placeholderMap.get(token);
       }
       return token;
     });
@@ -104,20 +105,20 @@ class BiliAnalyzer {
     
     console.log('Router check:', { pathname, searchParams: [...searchParams], hash });
     
-    // 场景1：稍后再看播放页 -> “转普通页”按钮
+    // 场景1：稍后再看播放页 -> "转普通页"按钮
     if (pathname.includes('/list/watchlater') && searchParams.has('bvid')) {
       const bvid = searchParams.get('bvid');
       this.handleWatchLaterPlayerScene(bvid);
       return;
     }
     
-    // 场景2：稍后再看列表管理页 -> “分析标题”按钮
+    // 场景2：稍后再看列表管理页 -> "分析标题"按钮
     if ((pathname.includes('/watchlater/list') || hash.includes('#/list')) && !searchParams.has('bvid')) {
       this.handleWatchLaterListScene();
       return;
     }
     
-    // 场景3：历史记录页 -> “分析近期”按钮
+    // 场景3：历史记录页 -> "分析近期"按钮
     if (pathname.includes('/history')) {
       this.handleHistoryScene();
       return;
@@ -356,7 +357,7 @@ class BiliAnalyzer {
     return result;
   }
 
-  // 分析标题，统计词频（支持自定义词库）
+  // 【修复】分析标题，统一使用智能正则匹配
   async analyzeTitles(titles) {
     const wordCount = new Map();
     
@@ -368,20 +369,14 @@ class BiliAnalyzer {
       let processedTitle = title;
       const currentTitleWords = new Set();
       
-      // 处理自定义短语：根据 isCaseSensitive 决定匹配方式
+      // 【修复】处理自定义短语：根据 isCaseSensitive 决定标志
       if (phraseSet.size > 0) {
         phraseSet.forEach(phrase => {
-          let regex;
-          if (this.isCaseSensitive) {
-            // 严格模式：精确匹配
-            regex = this.createSmartRegex(phrase, 'g');
-          } else {
-            // 合并模式：忽略大小写匹配
-            regex = this.createSmartRegex(phrase, 'gi');
-          }
+          const flags = this.isCaseSensitive ? 'g' : 'gi';
+          const regex = this.createSmartRegex(phrase, flags);
           const matches = processedTitle.match(regex);
           if (matches) {
-            // 标记当前标题包含该短语
+            // 标记当前标题包含该短语（使用原始短语作为 key）
             currentTitleWords.add(phrase);
             processedTitle = processedTitle.replace(regex, ' ');
           }
@@ -452,7 +447,7 @@ class BiliAnalyzer {
   createSmartRegex(phrase, flags = '') {
     const escapedPhrase = this.escapeRegExp(phrase);
     if (this.isPureEnglishOrNumber(phrase)) {
-      // 纯英文/数字：添加单词边界
+      // 纯英文/数字：添加单词边界，防止 "AI" 匹配到 "repair" 中的 "ai"
       return new RegExp('\\b' + escapedPhrase + '\\b', flags);
     } else {
       // 包含中文或其他字符：不添加边界
@@ -462,16 +457,36 @@ class BiliAnalyzer {
   
   async getUserConfig() {
     return new Promise((resolve) => {
-      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-        chrome.storage.local.get(['blockedWords', 'userPhrases', 'userDefinedWords'], (result) => {
-          resolve({
-            blockedWords: result.blockedWords || [],
-            userPhrases: result.userPhrases || [],
-            userDefinedWords: result.userDefinedWords || []
-          });
-        });
-      } else {
-        resolve({ blockedWords: [], userPhrases: [], userDefinedWords: [] });
+      try {
+        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+          try {
+            chrome.storage.local.get(['blockedWords', 'userPhrases', 'userDefinedWords'], (result) => {
+              try {
+                if (chrome.runtime && chrome.runtime.lastError) {
+                  console.warn('[getUserConfig] Chrome runtime error:', chrome.runtime.lastError.message);
+                  resolve(this.getUserConfigSync());
+                  return;
+                }
+                resolve({
+                  blockedWords: result.blockedWords || [],
+                  userPhrases: result.userPhrases || [],
+                  userDefinedWords: result.userDefinedWords || []
+                });
+              } catch (error) {
+                console.warn('[getUserConfig] Error in callback:', error.message);
+                resolve(this.getUserConfigSync());
+              }
+            });
+          } catch (error) {
+            console.warn('[getUserConfig] Error calling chrome.storage.local.get:', error.message);
+            resolve(this.getUserConfigSync());
+          }
+        } else {
+          resolve(this.getUserConfigSync());
+        }
+      } catch (error) {
+        console.warn('[getUserConfig] Unexpected error:', error.message);
+        resolve(this.getUserConfigSync());
       }
     });
   }
@@ -502,6 +517,7 @@ class BiliAnalyzer {
     const showExpandButton = results.length > displayLimit;
     const displayedResults = results.slice(0, displayLimit);
 
+    // 【修复】计算全局最大值，用于所有进度条
     const maxCount = results.length > 0 ? results[0][1] : 1;
 
     const keywordsHtml = results.length > 0 ? `
@@ -550,7 +566,9 @@ class BiliAnalyzer {
     `;
 
     this.renderVideoList(videos);
-    await this.renderUserPhrases(videos);
+    
+    // 【修复】传递 maxCount 作为全局最大值
+    await this.renderUserPhrases(videos, maxCount);
 
     const keywordElements = modalBody.querySelectorAll('.bili-result-word');
     keywordElements.forEach(keywordElement => {
@@ -598,7 +616,8 @@ class BiliAnalyzer {
     }
   }
 
-  async renderUserPhrases(videos) {
+  // 【修复】渲染自定义短语，使用 globalMaxCount 计算进度条
+  async renderUserPhrases(videos, globalMaxCount) {
     const userPhrasesContainer = this.modal.querySelector('#bili-user-phrases-container');
     const { userPhrases = [] } = await this.getUserConfig();
     
@@ -608,28 +627,13 @@ class BiliAnalyzer {
     }
 
     const phraseStats = new Map();
-    
-    // 初始化短语统计结构
-    userPhrases.forEach(phrase => {
-      phraseStats.set(phrase, { 
-        total: 0, 
-        variants: {} 
-      });
-    });
 
     videos.forEach(video => {
       userPhrases.forEach(phrase => {
         // 根据 isCaseSensitive 决定匹配方式
-        let matches;
-        if (this.isCaseSensitive) {
-          // 严格模式：精确匹配（使用智能正则）
-          const regex = this.createSmartRegex(phrase, 'g');
-          matches = video.title.match(regex);
-        } else {
-          // 合并模式：忽略大小写匹配（使用智能正则）
-          const regex = this.createSmartRegex(phrase, 'gi');
-          matches = video.title.match(regex);
-        }
+        const flags = this.isCaseSensitive ? 'g' : 'gi';
+        const regex = this.createSmartRegex(phrase, flags);
+        const matches = video.title.match(regex);
         
         if (matches) {
           const lowerPhrase = phrase.toLowerCase();
@@ -646,8 +650,7 @@ class BiliAnalyzer {
           // 每个视频只计数 1 次（去重）
           stats.total++;
           
-          // 记录每种写法的出现次数（用于决定展示哪个变体）
-          // 提取实际匹配到的文本（可能是不同的写法）
+          // 记录每种写法的出现次数
           const matchedText = matches[0];
           stats.variants[matchedText] = (stats.variants[matchedText] || 0) + 1;
         }
@@ -669,23 +672,25 @@ class BiliAnalyzer {
       return;
     }
 
-    const maxPhraseCount = sortedPhrases[0][1];
-
+    // 【关键修复】使用 globalMaxCount 计算进度条宽度
+    // 直接使用主榜单的 globalMaxCount，确保与主榜单的进度条比例一致
     userPhrasesContainer.innerHTML = `
-      <div class="bili-user-phrases-section">
-        <div class="bili-user-phrases-header">
+      <div class="bili-keywords-section">
+        <div class="bili-keywords-header">
           <h4 class="bili-section-title">自定义短语</h4>
         </div>
-        <div class="bili-user-phrases-list">
+        <div class="bili-analysis-results bili-user-phrases-list">
           ${sortedPhrases.map(([phrase, count], index) => {
-            const percentage = (count / maxPhraseCount) * 100;
+            // 使用 globalMaxCount 计算百分比，确保视觉比例正确
+            // 例如：主榜单第一名40次，自定义短语3次，则显示为 3/40 = 7.5%
+            const percentage = (count / globalMaxCount) * 100;
             return `
-              <div class="bili-user-phrase-item" style="animation-delay: ${index * 0.03}s">
-                <div class="bili-user-phrase-word" data-keyword="${phrase}">${phrase}</div>
-                <div class="bili-user-phrase-bar">
-                  <div class="bili-user-phrase-bar-fill" style="width: ${percentage}%"></div>
+              <div class="bili-result-item bili-user-phrase-item" style="animation-delay: ${index * 0.03}s">
+                <div class="bili-result-word bili-user-phrase-word" data-keyword="${phrase}">${phrase}</div>
+                <div class="bili-result-bar">
+                  <div class="bili-result-bar-fill bili-user-phrase-bar-fill" style="width: ${percentage}%"></div>
                 </div>
-                <div class="bili-user-phrase-count">${count}次</div>
+                <div class="bili-result-count">${count}次</div>
               </div>
             `;
           }).join('')}
@@ -703,74 +708,57 @@ class BiliAnalyzer {
   }
 
   toggleKeywordFilter(keyword) {
-    if (this.currentFilterKeyword === keyword) {
+    // 防抖保护：500ms 内忽略重复触发
+    const now = Date.now();
+    if (now - this.lastToggleTime < 500) {
+      return;
+    }
+    this.lastToggleTime = now;
+    
+    console.log('当前关键词:', this.currentFilterKeyword, '点击关键词:', keyword);
+    
+    // 1. 准备正则 - 统一使用智能正则匹配标题
+    const flags = this.isCaseSensitive ? '' : 'i';
+    const regex = this.createSmartRegex(keyword, flags);
+    
+    // 2. 优先使用正则匹配标题
+    let matchedVideos = this.originalVideos.filter(video => {
+      regex.lastIndex = 0;
+      return regex.test(video.title);
+    });
+    
+    // 3. 如果正则匹配结果为 0，降级到 rawTokens
+    if (matchedVideos.length === 0) {
+      const lowerKeyword = keyword.toLowerCase();
+      matchedVideos = this.originalVideos.filter(video => {
+        return video.rawTokens && video.rawTokens.some(token => 
+          token.toLowerCase() === lowerKeyword
+        );
+      });
+    }
+    
+    console.log('[toggleKeywordFilter] 匹配数量:', matchedVideos.length);
+    
+    // 4. 优化 Toggle 逻辑：只有当当前关键词等于点击关键词且已筛选结果不为空时，才取消
+    if (this.currentFilterKeyword === keyword && matchedVideos.length > 0) {
+      console.log('[toggleKeywordFilter] 取消当前筛选');
       this.currentFilterKeyword = null;
       this.renderVideoList(this.originalVideos);
       this.updateKeywordHighlight(null);
-    } else {
-      this.currentFilterKeyword = keyword;
-      
-      let filteredVideos;
-      
-      // 检查是否为自定义短语
-      const { userPhrases = [] } = this.getUserConfigSync();
-      const isUserPhrase = userPhrases.includes(keyword);
-      
-      if (this.isCaseSensitive) {
-        // 严格模式
-        if (isUserPhrase) {
-          // 自定义短语：使用智能正则精确匹配
-          const regex = this.createSmartRegex(keyword);
-          filteredVideos = this.originalVideos.filter(video => 
-            regex.test(video.title)
-          );
-        } else {
-          // 普通词：使用 rawTokens 精确匹配
-          filteredVideos = this.originalVideos.filter(video => 
-            video.rawTokens.includes(keyword)
-          );
-        }
-      } else {
-        // 合并模式
-        const lowerKeyword = keyword.toLowerCase();
-        
-        if (isUserPhrase) {
-          // 自定义短语：使用智能正则忽略大小写匹配
-          const regex = this.createSmartRegex(keyword, 'i');
-          filteredVideos = this.originalVideos.filter(video => 
-            regex.test(video.title)
-          );
-          
-          // 精确匹配的排在前面
-          filteredVideos.sort((a, b) => {
-            const hasExactA = a.title.includes(keyword);
-            const hasExactB = b.title.includes(keyword);
-            
-            if (hasExactA && !hasExactB) return -1;
-            if (!hasExactA && hasExactB) return 1;
-            return 0;
-          });
-        } else {
-          // 普通词：使用 lowerTokens 进行大小写无关匹配
-          filteredVideos = this.originalVideos.filter(video => 
-            video.lowerTokens.includes(lowerKeyword)
-          );
-          
-          // 精确匹配的排在前面
-          filteredVideos.sort((a, b) => {
-            const hasExactA = a.title.includes(keyword);
-            const hasExactB = b.title.includes(keyword);
-            
-            if (hasExactA && !hasExactB) return -1;
-            if (!hasExactA && hasExactB) return 1;
-            return 0;
-          });
-        }
-      }
-      
-      this.renderVideoList(filteredVideos);
-      this.updateKeywordHighlight(keyword);
+      return;
     }
+    
+    // 5. 设置当前关键词并渲染
+    this.currentFilterKeyword = keyword;
+    
+    if (matchedVideos.length === 0) {
+      const videoListContainer = this.modal.querySelector('#bili-video-list');
+      videoListContainer.innerHTML = '<div class="bili-empty-state">未找到包含该词的视频</div>';
+    } else {
+      this.renderVideoList(matchedVideos);
+    }
+    
+    this.updateKeywordHighlight(keyword);
   }
   
   getUserConfigSync() {
@@ -834,10 +822,10 @@ class BiliAnalyzer {
     });
     
     if (keyword) {
-      const targetElement = this.modal.querySelector(`.bili-result-word[data-keyword="${keyword}"]`);
-      if (targetElement) {
+      const targetElements = this.modal.querySelectorAll(`.bili-result-word[data-keyword="${keyword}"]`);
+      targetElements.forEach(targetElement => {
         targetElement.classList.add('bili-keyword-selected');
-      }
+      });
     }
   }
 
@@ -870,15 +858,14 @@ class BiliAnalyzer {
           <div class="bili-loading">加载中...</div>
         </div>
         <div class="bili-modal-footer">
-          <button class="bili-dict-btn" id="bili-dict-btn">📖 词库</button>
-          <button class="bili-reload-btn" id="bili-reload-btn">🔄 重新加载</button>
-          <span class="bili-author-credit">Designed by 扎导ZhaDa0</span>
-          <button class="bili-modal-close-btn">关闭</button>
+          <button class="bili-footer-btn" id="bili-dict-btn">📖 词库</button>
+          <button class="bili-footer-btn" id="bili-reload-btn">🔄 重新加载</button>
+          <button class="bili-footer-btn bili-footer-btn-close">关闭</button>
         </div>
       </div>
     `;
 
-    const closeButtons = this.modal.querySelectorAll('.bili-modal-close, .bili-modal-close-btn');
+    const closeButtons = this.modal.querySelectorAll('.bili-modal-close, .bili-footer-btn-close');
     closeButtons.forEach(btn => {
       btn.addEventListener('click', () => this.closeModal());
     });
@@ -1098,7 +1085,8 @@ class BiliAnalyzer {
     const newBlockedWords = blockedWordsInput.split(',').map(w => w.trim()).filter(w => w);
     const newUserPhrases = userPhrasesInput.split(',').map(p => p.trim()).filter(p => p);
     
-    this.saveUserConfig(newBlockedWords, newUserPhrases);
+    const { userDefinedWords = [] } = await this.getUserConfig();
+    this.saveUserConfig(newBlockedWords, newUserPhrases, userDefinedWords);
     
     this.closeConfigModal();
     

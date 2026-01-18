@@ -217,6 +217,68 @@
   text-decoration: underline;
 }
 
+.bili-case-sensitive-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bili-toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+}
+
+.bili-toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.bili-toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: 0.3s;
+  border-radius: 24px;
+}
+
+.bili-toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.3s;
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.bili-toggle-switch input:checked + .bili-toggle-slider {
+  background-color: #FB7299;
+}
+
+.bili-toggle-switch input:checked + .bili-toggle-slider:before {
+  transform: translateX(20px);
+}
+
+.bili-toggle-switch input:focus + .bili-toggle-slider {
+  box-shadow: 0 0 1px #FB7299;
+}
+
+.bili-toggle-label {
+  font-size: 13px;
+  color: #666;
+  font-weight: 500;
+}
+
 .bili-analysis-results {
   display: flex;
   flex-direction: column;
@@ -322,6 +384,13 @@
 .bili-result-bar-fill {
   height: 100%;
   background: linear-gradient(90deg, #FB7299 0%, #00A1D6 100%);
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+
+.bili-user-phrase-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #00A1D6 0%, #4ECDC4 100%);
   border-radius: 4px;
   transition: width 0.5s ease;
 }
@@ -472,6 +541,41 @@
 
 .bili-config-btn span {
   font-size: 14px;
+}
+
+.bili-footer-btn {
+  background: none;
+  border: none;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 8px 20px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #666;
+  border-radius: 6px;
+  background-color: #f5f5f5;
+  font-weight: 500;
+}
+
+.bili-footer-btn:hover {
+  background-color: #e8e8e8;
+  color: #00A1D6;
+}
+
+.bili-footer-btn:active {
+  transform: scale(0.98);
+}
+
+.bili-footer-btn-close {
+  background-color: #FB7299;
+  color: white;
+}
+
+.bili-footer-btn-close:hover {
+  background-color: #e05a85;
+  color: white;
 }
 
 .bili-submodal-overlay {
