@@ -455,18 +455,41 @@ class BiliAnalyzer {
     }
   }
   
+  // 检查 Chrome 扩展上下文是否有效
+  isChromeContextValid() {
+    try {
+      if (typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.id) {
+        return false;
+      }
+      // 尝试访问 runtime.id，如果上下文失效会抛出异常
+      const id = chrome.runtime.id;
+      return id && id.length > 0;
+    } catch (error) {
+      return false;
+    }
+  }
+
   async getUserConfig() {
     return new Promise((resolve) => {
+      // 首先检查扩展上下文是否有效
+      if (!this.isChromeContextValid()) {
+        // 上下文失效，直接使用 localStorage
+        resolve(this.getUserConfigSync());
+        return;
+      }
+
       try {
         if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
           try {
             chrome.storage.local.get(['blockedWords', 'userPhrases', 'userDefinedWords'], (result) => {
               try {
+                // 检查回调中的错误
                 if (chrome.runtime && chrome.runtime.lastError) {
                   console.warn('[getUserConfig] Chrome runtime error:', chrome.runtime.lastError.message);
                   resolve(this.getUserConfigSync());
                   return;
                 }
+                // 成功获取数据
                 resolve({
                   blockedWords: result.blockedWords || [],
                   userPhrases: result.userPhrases || [],
@@ -478,13 +501,16 @@ class BiliAnalyzer {
               }
             });
           } catch (error) {
+            // 如果调用 chrome.storage.local.get 时抛出异常（如上下文失效）
             console.warn('[getUserConfig] Error calling chrome.storage.local.get:', error.message);
             resolve(this.getUserConfigSync());
           }
         } else {
+          // Chrome API 不可用，使用 localStorage
           resolve(this.getUserConfigSync());
         }
       } catch (error) {
+        // 捕获所有其他错误
         console.warn('[getUserConfig] Unexpected error:', error.message);
         resolve(this.getUserConfigSync());
       }
@@ -492,13 +518,27 @@ class BiliAnalyzer {
   }
   
   saveUserConfig(blockedWords, userPhrases, userDefinedWords) {
-    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-      chrome.storage.local.set({ blockedWords, userPhrases, userDefinedWords });
+    // 始终保存到 localStorage（主要存储）
+    try {
+      localStorage.setItem('biliBlockedWords', JSON.stringify(blockedWords || []));
+      localStorage.setItem('biliUserPhrases', JSON.stringify(userPhrases || []));
+      localStorage.setItem('biliUserDefinedWords', JSON.stringify(userDefinedWords || []));
+    } catch (e) {
+      console.warn('[saveUserConfig] Failed to save to localStorage:', e);
     }
-    // 同时保存到 localStorage 以支持同步读取
-    localStorage.setItem('biliBlockedWords', JSON.stringify(blockedWords || []));
-    localStorage.setItem('biliUserPhrases', JSON.stringify(userPhrases || []));
-    localStorage.setItem('biliUserDefinedWords', JSON.stringify(userDefinedWords || []));
+
+    // 如果扩展上下文有效，也保存到 chrome.storage（作为备份）
+    if (this.isChromeContextValid() && typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      try {
+        chrome.storage.local.set({ blockedWords, userPhrases, userDefinedWords }, () => {
+          if (chrome.runtime && chrome.runtime.lastError) {
+            console.warn('[saveUserConfig] Chrome storage error:', chrome.runtime.lastError.message);
+          }
+        });
+      } catch (error) {
+        console.warn('[saveUserConfig] Error calling chrome.storage.local.set:', error.message);
+      }
+    }
   }
 
   // 渲染分析结果
@@ -829,6 +869,43 @@ class BiliAnalyzer {
     }
   }
 
+  // 获取保存的主题设置
+  getTheme() {
+    try {
+      return localStorage.getItem('biliTheme') || 'light';
+    } catch (e) {
+      return 'light';
+    }
+  }
+
+  // 保存主题设置
+  saveTheme(theme) {
+    try {
+      localStorage.setItem('biliTheme', theme);
+    } catch (e) {
+      console.warn('[saveTheme] Failed to save theme:', e);
+    }
+  }
+
+  // 应用主题
+  applyTheme(theme) {
+    if (this.modal) {
+      if (theme === 'dark') {
+        this.modal.setAttribute('data-theme', 'dark');
+      } else {
+        this.modal.removeAttribute('data-theme');
+      }
+    }
+  }
+
+  // 切换主题
+  toggleTheme() {
+    const currentTheme = this.getTheme();
+    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+    this.saveTheme(newTheme);
+    this.applyTheme(newTheme);
+  }
+
   // 创建模态框
   createModal() {
     if (this.modal) {
@@ -838,6 +915,10 @@ class BiliAnalyzer {
     this.modal = document.createElement('div');
     this.modal.className = 'bili-modal-overlay';
     
+    // 应用保存的主题
+    const savedTheme = this.getTheme();
+    this.applyTheme(savedTheme);
+    
     const title = this.currentScene === 'history' 
       ? '历史记录 - 近期观看统计' 
       : '稍后再看 - 你的关注点统计';
@@ -846,6 +927,11 @@ class BiliAnalyzer {
       <div class="bili-modal-content">
         <div class="bili-modal-header">
           <h3>${title}</h3>
+          <div class="bili-theme-toggle">
+            <button class="bili-theme-toggle-btn" id="bili-theme-toggle" data-theme="${savedTheme}">
+              <span class="bili-theme-toggle-slider"></span>
+            </button>
+          </div>
           <div class="bili-modal-header-actions">
             <button class="bili-config-btn" id="bili-config-btn">
               <span>⚙️</span>
@@ -862,6 +948,7 @@ class BiliAnalyzer {
           <button class="bili-footer-btn" id="bili-reload-btn">🔄 重新加载</button>
           <button class="bili-footer-btn bili-footer-btn-close">关闭</button>
         </div>
+        <button class="bili-info-btn" id="bili-info-btn" title="关于">i</button>
       </div>
     `;
 
@@ -889,6 +976,21 @@ class BiliAnalyzer {
     const dictBtn = this.modal.querySelector('#bili-dict-btn');
     if (dictBtn) {
       dictBtn.addEventListener('click', () => this.openDictModal());
+    }
+
+    // 添加主题切换事件监听器
+    const themeToggleBtn = this.modal.querySelector('#bili-theme-toggle');
+    if (themeToggleBtn) {
+      themeToggleBtn.addEventListener('click', () => {
+        this.toggleTheme();
+        const newTheme = this.getTheme();
+        themeToggleBtn.setAttribute('data-theme', newTheme);
+      });
+    }
+
+    const infoBtn = this.modal.querySelector('#bili-info-btn');
+    if (infoBtn) {
+      infoBtn.addEventListener('click', () => this.openAboutModal());
     }
 
     document.body.appendChild(this.modal);
@@ -963,6 +1065,66 @@ class BiliAnalyzer {
   closeDictModal() {
     if (this.dictModal) {
       this.dictModal.classList.remove('visible');
+    }
+  }
+
+  // 打开关于模态框
+  openAboutModal() {
+    if (this.aboutModal) {
+      this.aboutModal.classList.add('visible');
+      return;
+    }
+
+    this.aboutModal = document.createElement('div');
+    this.aboutModal.className = 'bili-about-modal';
+    
+    // 应用当前主题
+    const currentTheme = this.getTheme();
+    if (currentTheme === 'dark') {
+      this.aboutModal.setAttribute('data-theme', 'dark');
+    }
+    
+    this.aboutModal.innerHTML = `
+      <div class="bili-about-content">
+        <div class="bili-about-header">
+          <h3>关于</h3>
+          <button class="bili-modal-close">&times;</button>
+        </div>
+        <div class="bili-about-body">
+          <div class="bili-about-text">
+            <div class="bili-about-text-line">制作：@扎导ZHA</div>
+            <div class="bili-about-text-line">感谢支持</div>
+          </div>
+          <div class="bili-about-buttons">
+            <a href="https://github.com/zhadao/Bili-WatchLater_History-_Manager-" target="_blank" class="bili-about-link-btn github">GitHub</a>
+            <a href="https://space.bilibili.com/491873894?spm_id_from=333.1007.0.0" target="_blank" class="bili-about-link-btn bilibili">bilibili</a>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const closeBtn = this.aboutModal.querySelector('.bili-modal-close');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => this.closeAboutModal());
+    }
+
+    this.aboutModal.addEventListener('click', (e) => {
+      if (e.target === this.aboutModal) {
+        this.closeAboutModal();
+      }
+    });
+
+    document.body.appendChild(this.aboutModal);
+    
+    setTimeout(() => {
+      this.aboutModal.classList.add('visible');
+    }, 10);
+  }
+
+  // 关闭关于模态框
+  closeAboutModal() {
+    if (this.aboutModal) {
+      this.aboutModal.classList.remove('visible');
     }
   }
 
