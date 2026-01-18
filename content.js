@@ -872,6 +872,7 @@ class BiliAnalyzer {
         <div class="bili-modal-footer">
           <button class="bili-dict-btn" id="bili-dict-btn">📖 词库</button>
           <button class="bili-reload-btn" id="bili-reload-btn">🔄 重新加载</button>
+          <span class="bili-author-credit">Designed by 扎导ZhaDa0</span>
           <button class="bili-modal-close-btn">关闭</button>
         </div>
       </div>
