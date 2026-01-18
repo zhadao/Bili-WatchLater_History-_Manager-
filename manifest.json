@@ -10,7 +10,7 @@
   },
   "content_scripts": [
     {
-      "matches": ["*://www.bilibili.com/list/watchlater*"],
+      "matches": ["*://www.bilibili.com/*"],
       "css": ["style.css"],
       "js": ["content.js"],
       "run_at": "document_end"
