@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "Bilibili WatchLater Exporter",
+  "version": "1.0.0",
+  "description": "在B站稍后再看列表中快速跳转到普通播放页",
+  "icons": {
+    "16": "icons/icon16.svg",
+    "48": "icons/icon48.svg",
+    "128": "icons/icon128.svg"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://www.bilibili.com/list/watchlater*"],
+      "css": ["style.css"],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": []
+}
