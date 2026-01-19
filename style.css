@@ -744,6 +744,38 @@
   color: #ccc;
 }
 
+.bili-edit-stopwords-btn {
+  margin-top: 8px;
+  padding: 8px 16px;
+  background: none;
+  border: 1px solid var(--accent-secondary);
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: var(--accent-secondary);
+  background-color: transparent;
+}
+
+.bili-edit-stopwords-btn:hover {
+  background-color: var(--accent-secondary);
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 161, 214, 0.4);
+}
+
+.bili-edit-stopwords-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(0, 161, 214, 0.4);
+}
+
+.bili-stopwords-editor {
+  min-height: 200px;
+  font-family: 'Courier New', Courier, monospace;
+  line-height: 1.6;
+}
+
 @media (max-width: 900px) {
   .bili-modal-content {
     min-width: 600px;

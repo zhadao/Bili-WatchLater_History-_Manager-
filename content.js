@@ -12,34 +12,64 @@ class BiliAnalyzer {
     this.userDefinedWords = new Set();
     this.lastToggleTime = 0;
     
-    this.stopWords = new Set([
-      '的', '了', '是', '和', '在', '视频', '教程', '[', ']', '(', ')', '(', ')', 
-      ',', '.', '!', '?', '/', ':', ';', '"', '"', "'", "'", ' ', '\t', '\n',
-      '一个', '这个', '那个', '可以', '如何', '什么', '没有', '进行', '使用', '实现',
-      '学习', '分享', '讲解', '演示', '制作', '开发',  '代码', '项目', '实战',
-      '入门', '进阶', '基础', '高级', '完整', '详细', '全面', '系列', '课程', '教学',
-      '第一', '第二', '第三', '第四', '第五', '第六', '第七', '第八', '第九', '第十',
-      '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '一', '二', '三', '四', '五',
-      '六', '七', '八', '九', '十', '零', '百', '千', '万', '亿',
-      '我们', '到了', '真的', '大家', '都会', '真的', '这么', '一下', '差一点', '再打', '以为', '放大', '分钟', '小时', '你的', '我的', '怎么', '为什么', '都在', '推荐',
-      '超全', '巨细', '贼香', '爆爽', '绝了', '太绝', '超赞', '巨牛', '贼强', '爆燃', '超燃', '巨燃',
-      '贼燃', '绝燃', '太燃', '超爽', '巨爽', '贼爽', '绝爽', '太爽', '超神', '巨神', '贼神', '绝神',
-      '太神', '超稳', '巨稳', '贼稳', '绝稳', '太稳', '超秀', '巨秀', '贼秀', '绝秀', '太秀', '超顶',
-      '巨顶', '贼顶', '绝顶', '太顶', '超炸', '巨炸', '贼炸', '绝炸', '太炸', '超猛', '巨猛', '贼猛',
-      '绝猛', '太猛', '超酷', '巨酷', '贼酷', '绝酷', '太酷', '超炫', '巨炫', '贼炫', '绝炫', '太炫',
-      '超飒',  '绝飒', '太飒', '超 A', '巨 A', '贼 A', '绝 A', '太 A', '超甜', '巨甜',
-      '贼甜', '绝甜', '太甜', '超虐', '巨虐', '贼虐', '绝虐', '太虐', '超萌', '巨萌', '贼萌', '绝萌',
-      '太萌', '超可爱', '巨可爱', '贼可爱', '绝可爱', '太可爱'
+    this.builtInStopWords = new Set([
+      '[', ']', '(', ')', ',', '.', '!', '?', '/', ':', ';', '"', "'", ' ', '\t', '\n'
     ]);
+    
+    this.stopWords = new Set();
+    this.stopWordsFileContent = '';
     
     this.segmenter = new Intl.Segmenter('zh-CN', { granularity: 'word' });
     
     this.loadUserDefinedWords();
+    this.loadStopWordsFromFile();
   }
   
   async loadUserDefinedWords() {
     const { userDefinedWords = [] } = await this.getUserConfig();
     this.userDefinedWords = new Set(userDefinedWords);
+  }
+  
+  async loadStopWordsFromFile() {
+    try {
+      this.stopWords.clear();
+      
+      let text = '';
+      
+      const cachedContent = localStorage.getItem('biliStopWordsFileContent');
+      if (cachedContent) {
+        text = cachedContent;
+        console.log('[loadStopWordsFromFile] Loaded from localStorage cache');
+      } else {
+        const response = await fetch(chrome.runtime.getURL('stopwords.txt'));
+        if (!response.ok) {
+          console.warn('[loadStopWordsFromFile] Failed to load stopwords.txt:', response.statusText);
+          return;
+        }
+        text = await response.text();
+        localStorage.setItem('biliStopWordsFileContent', text);
+        console.log('[loadStopWordsFromFile] Loaded from file and cached');
+      }
+      
+      this.stopWordsFileContent = text;
+      const lines = text.split('\n');
+      
+      lines.forEach((line, lineIndex) => {
+        const words = line.split(',').map(word => word.trim()).filter(word => word.length > 0);
+        
+        if (words.length > 15) {
+          console.warn(`[loadStopWordsFromFile] Line ${lineIndex + 1} contains ${words.length} words (max 15), will use first 15 words`);
+        }
+        
+        words.slice(0, 15).forEach(word => {
+          this.stopWords.add(word);
+        });
+      });
+      
+      console.log('[loadStopWordsFromFile] Loaded', this.stopWords.size, 'stopwords from file');
+    } catch (error) {
+      console.warn('[loadStopWordsFromFile] Error loading stopwords:', error.message);
+    }
   }
   
   // 【修复】预分词工具函数：使用 replace(regex, callback) 确保智能正则生效
@@ -388,6 +418,7 @@ class BiliAnalyzer {
       
       for (const word of rawTokens) {
         if (word.length > 1 && 
+            !this.builtInStopWords.has(word) &&
             !this.stopWords.has(word) && 
             !blockedSet.has(word) &&
             !phraseSet.has(word) &&
@@ -1067,6 +1098,102 @@ class BiliAnalyzer {
       this.dictModal.classList.remove('visible');
     }
   }
+  
+  // 打开stopwords编辑器
+  openStopWordsEditor() {
+    if (this.stopWordsEditorModal) {
+      this.stopWordsEditorModal.classList.add('visible');
+      return;
+    }
+    
+    const content = this.stopWordsFileContent || '';
+    
+    this.stopWordsEditorModal = document.createElement('div');
+    this.stopWordsEditorModal.className = 'bili-submodal-overlay';
+    
+    this.stopWordsEditorModal.innerHTML = `
+      <div class="bili-submodal-content">
+        <div class="bili-submodal-header">
+          <h3>编辑内置屏蔽词库</h3>
+          <button class="bili-modal-close">&times;</button>
+        </div>
+        <div class="bili-submodal-body">
+          <div class="bili-config-section">
+            <div class="bili-config-item">
+              <label class="bili-config-label">屏蔽词内容（每行最多15个词，用英文逗号分隔）</label>
+              <textarea class="bili-config-textarea bili-stopwords-editor" id="bili-stopwords-content" placeholder="例如：的,了,是,和,在">${content}</textarea>
+              <div class="bili-config-hint">编辑后点击保存，修改将立即生效</div>
+            </div>
+          </div>
+        </div>
+        <div class="bili-submodal-footer">
+          <button class="bili-submodal-btn bili-submodal-btn-cancel" id="bili-stopwords-cancel-btn">取消</button>
+          <button class="bili-submodal-btn bili-submodal-btn-save" id="bili-stopwords-save-btn">保存</button>
+        </div>
+      </div>
+    `;
+    
+    const closeButtons = this.stopWordsEditorModal.querySelectorAll('.bili-modal-close, #bili-stopwords-cancel-btn');
+    closeButtons.forEach(btn => {
+      btn.addEventListener('click', () => this.closeStopWordsEditor());
+    });
+    
+    this.stopWordsEditorModal.addEventListener('click', (e) => {
+      if (e.target === this.stopWordsEditorModal) {
+        this.closeStopWordsEditor();
+      }
+    });
+    
+    const saveBtn = this.stopWordsEditorModal.querySelector('#bili-stopwords-save-btn');
+    saveBtn.addEventListener('click', () => this.saveStopWordsFile());
+    
+    document.body.appendChild(this.stopWordsEditorModal);
+    
+    setTimeout(() => {
+      this.stopWordsEditorModal.classList.add('visible');
+    }, 10);
+  }
+  
+  // 关闭stopwords编辑器
+  closeStopWordsEditor() {
+    if (this.stopWordsEditorModal) {
+      this.stopWordsEditorModal.classList.remove('visible');
+    }
+  }
+  
+  // 保存stopwords文件内容
+  async saveStopWordsFile() {
+    const contentInput = this.stopWordsEditorModal.querySelector('#bili-stopwords-content').value;
+    
+    try {
+      localStorage.setItem('biliStopWordsFileContent', contentInput);
+      this.stopWordsFileContent = contentInput;
+      
+      await this.loadStopWordsFromFile();
+      
+      this.closeStopWordsEditor();
+      
+      const modalBody = this.modal.querySelector('.bili-modal-body');
+      modalBody.innerHTML = '<div class="bili-loading">正在重新分析...</div>';
+      
+      try {
+        const data = await this.fetchData();
+        if (data.titles && data.titles.length > 0) {
+          const results = await this.analyzeTitles(data.titles);
+          this.renderAnalysisResults(results, data.videos);
+        } else {
+          modalBody.innerHTML = '<div class="bili-error">未找到近期记录</div>';
+        }
+      } catch (error) {
+        modalBody.innerHTML = `<div class="bili-error">获取数据失败：${error.message}</div>`;
+      }
+      
+      console.log('[saveStopWordsFile] Saved successfully');
+    } catch (error) {
+      console.error('[saveStopWordsFile] Error saving:', error.message);
+      alert('保存失败：' + error.message);
+    }
+  }
 
   // 打开关于模态框
   openAboutModal() {
@@ -1162,6 +1289,8 @@ class BiliAnalyzer {
     modalBody.innerHTML = '<div class="bili-loading">正在重新读取B站数据...</div>';
     
     try {
+      await this.loadStopWordsFromFile();
+      
       const data = await this.fetchData();
       if (data.titles && data.titles.length > 0) {
         const results = await this.analyzeTitles(data.titles);
@@ -1197,6 +1326,7 @@ class BiliAnalyzer {
             <div class="bili-config-item">
               <label class="bili-config-label">屏蔽词（用逗号分隔）</label>
               <textarea class="bili-config-textarea" id="bili-blocked-words" placeholder="例如：我们,99,II">${blockedWords.join(',')}</textarea>
+              <button class="bili-edit-stopwords-btn" id="bili-edit-stopwords-btn">📝 编辑内置屏蔽词库</button>
             </div>
             <div class="bili-config-item">
               <label class="bili-config-label">自定义短语（用逗号分隔）</label>
@@ -1224,7 +1354,10 @@ class BiliAnalyzer {
 
     const saveBtn = this.configModal.querySelector('#bili-config-save-btn');
     saveBtn.addEventListener('click', () => this.saveConfigAndRefresh());
-
+    
+    const editStopWordsBtn = this.configModal.querySelector('#bili-edit-stopwords-btn');
+    editStopWordsBtn.addEventListener('click', () => this.openStopWordsEditor());
+    
     document.body.appendChild(this.configModal);
     
     setTimeout(() => {

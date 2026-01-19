@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Bilibili 稍后再看 & 历史记录增强助手 (Bili-WatchLater_History-Manager)",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "在B站稍后再看列表中快速跳转到普通播放页",
   "author": "扎导ZhaDa0",
   "icons": {
@@ -20,5 +20,11 @@
   "background": {
     "service_worker": "background.js"
   },
-  "permissions": ["storage"]
+  "permissions": ["storage"],
+  "web_accessible_resources": [
+    {
+      "resources": ["stopwords.txt"],
+      "matches": ["*://www.bilibili.com/*"]
+    }
+  ]
 }
